@@ -1,6 +1,6 @@
 import hashlib
 import requests
-
+import time
 import sys
 import json
 
@@ -13,7 +13,17 @@ def proof_of_work(block):
     in an effort to find a number that is a valid proof
     :return: A valid proof for the provided block
     """
-    pass
+    start = time.time()
+    block_string = json.dumps(block, sort_keys=True)
+    proof = 0
+
+    while not valid_proof(block_string, proof):
+        proof += 1
+    end = time.time()
+
+    run_time = end - start
+    print(F"Run time: {round(run_time,2)} seconds")
+    return proof
 
 
 def valid_proof(block_string, proof):
@@ -27,7 +37,11 @@ def valid_proof(block_string, proof):
     correct number of leading zeroes.
     :return: True if the resulting hash is a valid proof, False otherwise
     """
-    pass
+
+    guess = f'{block_string}{proof}'.encode()
+    guess_hash = hashlib.sha256(guess).hexdigest()
+
+    return guess_hash[:6] == "0"*6
 
 
 if __name__ == '__main__':
@@ -43,28 +57,38 @@ if __name__ == '__main__':
     print("ID is", id)
     f.close()
 
+    coin_mined = 0
+
     # Run forever until interrupted
     while True:
         r = requests.get(url=node + "/last_block")
         # Handle non-json response
         try:
             data = r.json()
+
+            # TODO: Get the block from `data` and use it to look for a new proof
+
+            new_proof = proof_of_work(data["last_block"])
+
+            # When found, POST it to the server {"proof": new_proof, "id": id}
+            post_data = {"proof": new_proof, "id": id}
+            print("post_data: ", post_data)
+            r = requests.post(url=node + "/mine", json=post_data)
+            data = r.json()
+
+            # TODO: If the server responds with a 'message' 'New Block Forged'
+            # add 1 to the number of coins mined and print it.  Otherwise,
+            # print the message from the server.
+
+            if data["message"] == "New block formed":
+                coin_mined += 1
+                print(F"Got a coin!, you now have {coin_mined} coin(s) ")
+
+            else:
+                print(data["message"])
+
         except ValueError:
             print("Error:  Non-json response")
             print("Response returned:")
             print(r)
             break
-
-        # TODO: Get the block from `data` and use it to look for a new proof
-        # new_proof = ???
-
-        # When found, POST it to the server {"proof": new_proof, "id": id}
-        post_data = {"proof": new_proof, "id": id}
-
-        r = requests.post(url=node + "/mine", json=post_data)
-        data = r.json()
-
-        # TODO: If the server responds with a 'message' 'New Block Forged'
-        # add 1 to the number of coins mined and print it.  Otherwise,
-        # print the message from the server.
-        pass
